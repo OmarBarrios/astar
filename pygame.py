@@ -3,6 +3,7 @@ import math
 from queue import PriorityQueue
 from PIL import Image
 import numpy as np
+import random
 
 WIDTH = 800
 WIN = pygame.display.set_mode((WIDTH, WIDTH))
@@ -173,7 +174,6 @@ def create_grid_from_image(image_path, rows, cols):
     return grid
 
 
-
 def draw_grid(win, rows, width):
     gap = width // rows
     for i in range(rows):
@@ -202,14 +202,41 @@ def get_clicked_pos(pos, rows, width):
 
     return row, col
 
+def find_robots_and_targets(grid, rows, cols):
+    robots = []
+    targets = []
+    for i in range(rows):
+        for j in range(cols):
+            spot = grid[i][j]
+            if spot.is_start():
+                robots.append((i, j))
+            elif spot.is_end():
+                targets.append((i, j))
+    return robots, targets
+
+def move_robot(grid, robot_pos):
+    row, col = robot_pos
+    robot_spot = grid[row][col]
+    neighbors = robot_spot.neighbors
+
+    if neighbors:
+        new_pos = random.choice(neighbors).get_pos()
+        new_row, new_col = new_pos
+        grid[new_row][new_col].make_start()  # Pintar un píxel a su alrededor de su mismo color
+        robot_spot.reset()  # Restablecer el color del robot en su posición original
+        return new_pos
+    else:
+        return robot_pos
+
 
 def main(win, width, image_path):
     ROWS = 150
     COLS = 150
     grid = create_grid_from_image(image_path, ROWS, COLS)
 
-    start = None
-    end = None
+    robots, targets = find_robots_and_targets(grid, ROWS, COLS)
+
+    moving_robots = False
 
     run = True
     while run:
@@ -218,44 +245,20 @@ def main(win, width, image_path):
             if event.type == pygame.QUIT:
                 run = False
 
-            if pygame.mouse.get_pressed()[0]:  # LEFT
-                pos = pygame.mouse.get_pos()
-                row, col = get_clicked_pos(pos, ROWS, width)
-                spot = grid[row][col]
-                if not start and spot != end:
-                    start = spot
-                    start.make_start()
-
-                elif not end and spot != start:
-                    end = spot
-                    end.make_end()
-
-                elif spot != end and spot != start:
-                    spot.make_barrier()
-
-            elif pygame.mouse.get_pressed()[2]:  # RIGHT
-                pos = pygame.mouse.get_pos()
-                row, col = get_clicked_pos(pos, ROWS, width)
-                spot = grid[row][col]
-                spot.reset()
-                if spot == start:
-                    start = None
-                elif spot == end:
-                    end = None
-
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and start and end:
-                    for row in grid:
-                        for spot in row:
-                            spot.update_neighbors(grid)
-
-                    algorithm(lambda: draw(win, grid, ROWS, width), grid, start, end)
+                if event.key == pygame.K_SPACE:
+                    moving_robots = True
 
                 if event.key == pygame.K_c:
-                    start = None
-                    end = None
+                    robots, targets = find_robots_and_targets(grid, ROWS, COLS)
                     grid = create_grid_from_image(image_path, ROWS, COLS)
 
+        if moving_robots:
+            for i, robot_pos in enumerate(robots):
+                new_pos = move_robot(grid, robot_pos)
+                robots[i] = new_pos
+
     pygame.quit()
+
 
 main(WIN, WIDTH, 'Mapa_Ex01.png')
